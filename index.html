@@ -13,7 +13,7 @@ body{font-family:'Hind Siliguri',sans-serif;background:radial-gradient(circle,#1
 .hd b{color:#facc15}
 .box{margin:auto;width:min(92vw,420px);background:#052e1bdd;border:1px solid #2d6a45;border-radius:20px;padding:20px;text-align:center}
 .box h2{color:#facc15;font-size:19px;margin-bottom:12px}
-input{width:100%;padding:11px;margin:6px 0;border-radius:10px;border:1px solid #2d9a5a;background:#0008;color:#fff;font:inherit}
+input{width:100%;padding:11px;margin:6px 0;border-radius:10px;border:1px solid #2d9a5a;background:#0008;color:#fff;font:inherit;user-select:text;-webkit-user-select:text}
 .btn{padding:10px 16px;border:0;border-radius:10px;background:#059669;color:#fff;font:700 15px inherit;font-family:inherit;cursor:pointer}
 .btn.y{background:#eab308;color:#000}.btn.r{background:#dc2626}.btn.w{width:100%;margin:4px 0}
 .btn:disabled{opacity:.35}
@@ -44,8 +44,17 @@ input{width:100%;padding:11px;margin:6px 0;border-radius:10px;border:1px solid #
 .avc{font-size:26px;cursor:pointer;padding:2px;border-radius:50%;display:inline-block}.avc.sel{background:#facc15}
 .slots{display:grid;grid-template-columns:1fr 1fr;gap:8px}.slot{border-radius:12px;padding:8px;min-height:70px;background:#ffffff18;border:1px solid #4ade80}
 #panel .nb{padding:6px 8px;background:#14532d;min-width:34px}#panel .nb.y{background:#eab308}
+/* chat */
+#chatbar{display:flex;gap:6px;padding:2px 8px 6px;align-items:center}
+#chatbar input{flex:1;margin:0;padding:9px 12px;border-radius:20px;font-size:14px}
+#chatbar .btn{padding:8px 14px;border-radius:20px}
+#bubs{position:fixed;left:0;right:0;top:calc(env(safe-area-inset-top,0px) + 40px);display:flex;flex-direction:column;align-items:center;gap:4px;pointer-events:none;z-index:50}
+.bub{background:#000d;border:1px solid #facc15;color:#fff;padding:5px 12px;border-radius:14px;font-size:14px;max-width:88vw;word-break:break-word;animation:pop .2s;transition:opacity .5s}
+.bub.out{opacity:0}.bub b{color:#facc15}
+@keyframes pop{from{transform:scale(.8);opacity:0}to{transform:none;opacity:1}}
 </style></head><body>
 <header class="hd"><b>♠ কল ব্রিজ</b><span id="rc"></span><a onclick="sndShuffle();setTimeout(sndCard,1500)" style="cursor:pointer">🔊</a><a onclick="leave()" style="cursor:pointer">⎋ বের</a></header>
+<div id="bubs"></div>
 
 <div id="lobby" class="box"><h2>রুম তৈরি বা জয়েন করুন</h2>
 <input id="pn" placeholder="আপনার নাম" maxlength="14"><div id="avs" style="margin:4px 0"></div>
@@ -65,7 +74,8 @@ input{width:100%;padding:11px;margin:6px 0;border-radius:10px;border:1px solid #
 <div id="game"><div id="info"></div><div id="status"></div>
 <table id="sb"></table>
 <div id="arena"><div class="seat" id="s2"></div><div class="seat" id="s1"></div><div id="zone"></div><div class="seat" id="s3"></div></div>
-<div id="panel"></div><div class="seat" id="s0" style="align-self:center;max-width:60vw"></div><div id="hand"></div></div>
+<div id="panel"></div><div class="seat" id="s0" style="align-self:center;max-width:60vw"></div><div id="hand"></div>
+<div id="chatbar"><input id="ci" maxlength="60" placeholder="মেসেজ লিখুন..." enterkeyhint="send" autocomplete="off" onkeydown="if(event.key==='Enter')sendChat()"><button class="btn y" onclick="sendChat()">➤</button></div></div>
 
 <script>
 firebase.initializeApp({databaseURL:"https://cards29-game-default-rtdb.firebaseio.com"});
@@ -94,12 +104,27 @@ if(p&&p.then)p.then(()=>{a.pause();a.currentTime=0;a.muted=false}).catch(()=>{a.
 function sndShuffle(){try{if(shOK){SH.currentTime=0;const p=SH.play();if(p&&p.catch)p.catch(synthShuffle)}else synthShuffle()}catch(e){synthShuffle()}}
 function sndCard(){try{if(cdOK){const c=CD.cloneNode();c.volume=1;const p=c.play();if(p&&p.catch)p.catch(synthCard)}else synthCard()}catch(e){synthCard()}}
 
+/* ---------- chat ---------- */
+let off=0,lastSend=0;
+db.ref('.info/serverTimeOffset').on('value',s=>{off=s.val()||0});
+function showBubble(m){const b=document.createElement('div');b.className='bub';
+b.innerHTML=`${esc(m.a||'')} <b>${esc(m.n||'')}:</b> ${esc(m.x||'')}`;
+const w=$('bubs');w.appendChild(b);while(w.children.length>4)w.removeChild(w.firstChild);
+setTimeout(()=>b.classList.add('out'),4500);setTimeout(()=>b.remove(),5000)}
+function listenChat(){ref.child('chat').on('child_added',s=>{const m=s.val();if(!m)return;
+if(Date.now()+off-(m.t||0)>8000)return;showBubble(m)})}
+function sendChat(){const inp=$('ci'),x=inp.value.trim();if(!x||!S||me<0||!ref)return;
+const now=Date.now();if(now-lastSend<700)return;lastSend=now;
+const p=(S.players||{})[me]||{};const k=ref.child('chat').push();
+k.set({n:p.name||'',a:p.av||'',x:x,t:firebase.database.ServerValue.TIMESTAMP});
+setTimeout(()=>k.remove(),12000);inp.value='';inp.focus()}
+
 /* ---------- room ---------- */
 const uid=sessionStorage.uid||(sessionStorage.uid=Math.random().toString(36).slice(2,10));
 const AVS=['🦁','🤖','👽','🐼','🦊','🐯','🐸','🦄'];let av=localStorage.av||AVS[0];
 function pickAv(a){av=a;try{localStorage.av=a}catch(e){}drawAv()}
 function drawAv(){$('avs').innerHTML=AVS.map(a=>`<span class="avc ${a===av?'sel':''}" onclick="pickAv('${a}')">${a}</span>`).join('')}
-function enter(code){room=code;sessionStorage.spr=code;ref=db.ref('callbridge/'+room);ref.on('value',s=>{S=s.val();if(!S){leave();return}render()})}
+function enter(code){room=code;sessionStorage.spr=code;ref=db.ref('callbridge/'+room);ref.on('value',s=>{S=s.val();if(!S){leave();return}render()});listenChat()}
 function nm(){const n=$('pn').value.trim();if(!n)alert('নাম লিখুন!');return n}
 function create(){const n=nm();if(!n)return;const c=Math.random().toString(36).slice(2,7).toUpperCase();
 db.ref('callbridge/'+c).set({phase:'waiting',host:uid,players:{0:{name:n,av,id:uid}}}).then(()=>enter(c))}
