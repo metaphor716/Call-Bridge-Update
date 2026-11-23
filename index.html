@@ -77,15 +77,10 @@ const rk=c=>c.slice(1),fmt=v=>{v=(v||0)/10;return Number.isInteger(v)?String(v):
 const view=id=>['lobby','wait','game'].forEach(v=>$(v).style.display=v===id?(v==='game'?'flex':'block'):'none');
 
 /* ---------- sound ---------- */
-let AC;function ac(){AC=AC||new(window.AudioContext||window.webkitAudioContext)();if(AC.state==='suspended')AC.resume();return AC}
-addEventListener('pointerdown',()=>{try{ac()}catch(e){}},{once:true});
-function noise(t,d,f,v){const a=ac(),n=a.sampleRate*d|0,b=a.createBuffer(1,n,a.sampleRate),x=b.getChannelData(0);
-for(let i=0;i<n;i++)x[i]=(Math.random()*2-1)*(1-i/n);const s=a.createBufferSource(),fl=a.createBiquadFilter(),g=a.createGain();
-s.buffer=b;fl.type='bandpass';fl.frequency.value=f;g.gain.value=v;s.connect(fl);fl.connect(g);g.connect(a.destination);s.start(a.currentTime+t)}
-const sndShuffle=()=>{try{for(let i=0;i<16;i++)noise(i*.07,.06,2000+Math.random()*3000,.6)}catch(e){}};
-function sndCard(){try{const a=ac(),n=a.sampleRate*.08|0,b=a.createBuffer(1,n,a.sampleRate),x=b.getChannelData(0);
-for(let i=0;i<n;i++)x[i]=(Math.random()*2-1)*(1-i/n);const s=a.createBufferSource(),f=a.createBiquadFilter(),g=a.createGain();
-s.buffer=b;f.type='bandpass';f.frequency.value=1200;g.gain.value=.8;s.connect(f);f.connect(g);g.connect(a.destination);s.start()}catch(e){}}
+const SH=new Audio('shuffle.mp3'),CD=new Audio('card.mp3');SH.preload=CD.preload='auto';SH.volume=.9;
+addEventListener('pointerdown',()=>{[SH,CD].forEach(a=>{a.muted=true;const p=a.play();if(p)p.then(()=>{a.pause();a.currentTime=0;a.muted=false}).catch(()=>{a.muted=false})})},{once:true});
+const sndShuffle=()=>{try{SH.currentTime=0;SH.play().catch(()=>{})}catch(e){}};
+const sndCard=()=>{try{const c=CD.cloneNode();c.volume=1;c.play().catch(()=>{})}catch(e){}};
 
 /* ---------- room ---------- */
 const uid=sessionStorage.uid||(sessionStorage.uid=Math.random().toString(36).slice(2,10));
